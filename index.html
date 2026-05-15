@@ -7,6 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f1f5f9; }
@@ -15,16 +16,19 @@
         h2 { text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--accent); }
         .id-section { background: #334155; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 20px; border: 1px solid #475569; }
         #qrcode { background: white; padding: 10px; border-radius: 12px; width: fit-content; margin: 15px auto; }
-        .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .row { display: flex; gap: 8px; }
         input, textarea { flex: 1; padding: 14px; border-radius: 12px; border: 1px solid #475569; background: #0f172a; color: white; outline: none; }
         button { padding: 12px 20px; border-radius: 12px; border: none; background: var(--accent); color: #0f172a; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-scan { background: #f59e0b; color: white; width: 100%; }
         .btn-send { width: 100%; margin-bottom: 10px; }
         .btn-file { width: 100%; background: #10b981; color: white; }
+        #reader { width: 100%; border-radius: 12px; margin-bottom: 10px; overflow: hidden; display: none; }
         #transfer-list { margin-top: 25px; border-top: 1px solid #334155; padding-top: 20px; }
         .msg-item { background: #334155; padding: 16px; border-radius: 14px; margin-bottom: 12px; border-left: 4px solid var(--accent); }
         .msg-header { font-size: 0.75rem; color: var(--accent); margin-bottom: 8px; font-weight: bold; text-transform: uppercase; display: flex; align-items: center; gap: 5px; }
-        .msg-content { font-size: 0.95rem; line-height: 1.5; margin-bottom: 12px; color: #cbd5e1; }
-        .btn-action { padding: 6px 12px; font-size: 0.8rem; background: #475569; color: white; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; }
+        .msg-content { font-size: 0.95rem; line-height: 1.5; margin-bottom: 12px; color: #cbd5e1; word-break: break-all; }
+        .btn-action { padding: 6px 12px; font-size: 0.8rem; background: #475569; color: white; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; border: none; }
     </style>
 </head>
 <body>
@@ -39,8 +43,12 @@
     </div>
 
     <div class="input-group">
-        <input type="text" id="target-id" placeholder="Paste Partner's ID">
-        <button onclick="connectToPeer()"><i data-lucide="link"></i> Connect</button>
+        <div id="reader"></div>
+        <button class="btn-scan" id="scan-btn" onclick="toggleScanner()"><i data-lucide="scan-line"></i> Scan Partner's QR</button>
+        <div class="row">
+            <input type="text" id="target-id" placeholder="Partner's ID">
+            <button onclick="connectToPeer()"><i data-lucide="link"></i> Connect</button>
+        </div>
     </div>
 
     <textarea id="text-msg" placeholder="Write something..."></textarea>
@@ -55,6 +63,7 @@
 <script>
     const peer = new Peer();
     let conn;
+    let html5QrCode;
 
     peer.on('open', id => {
         document.getElementById('my-id').innerText = id;
@@ -65,6 +74,37 @@
         conn = connection;
         setupConn();
     });
+
+    function toggleScanner() {
+        const readerDiv = document.getElementById('reader');
+        if (readerDiv.style.display === 'block') {
+            stopScanner();
+        } else {
+            startScanner();
+        }
+    }
+
+    function startScanner() {
+        document.getElementById('reader').style.display = 'block';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+                document.getElementById('target-id').value = decodedText;
+                stopScanner();
+                connectToPeer();
+            }
+        ).catch(err => alert("Camera error: " + err));
+    }
+
+    function stopScanner() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('reader').style.display = 'none';
+            });
+        }
+    }
 
     function connectToPeer() {
         const tid = document.getElementById('target-id').value;
