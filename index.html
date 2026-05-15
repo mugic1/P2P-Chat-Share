@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Private Share</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; display: flex; justify-content: center; padding: 20px; }
+        .container { background: #1e1e1e; padding: 25px; border-radius: 15px; width: 100%; max-width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { text-align: center; color: #00d4ff; }
+        .id-box { background: #2d2d2d; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 1px dashed #00d4ff; }
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #333; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00d4ff; color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #0099bb; }
+        #status { font-size: 0.85em; text-align: center; margin-top: 10px; color: #bbb; }
+        .log-box { margin-top: 20px; max-height: 150px; overflow-y: auto; font-size: 0.9em; background: #111; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>My Private Share 🚀</h2>
+    <div class="id-box">
+        <small>Aapki ID:</small>
+        <div id="my-id" style="font-size: 1.2em; font-weight: bold; letter-spacing: 1px;">Loading...</div>
+    </div>
+
+    <input type="text" id="target-id" placeholder="Dusre device ki ID yahan likhein">
+    
+    <textarea id="text-msg" placeholder="Kuch text likhein jo bhejna hai..."></textarea>
+    <button onclick="sendText()">Send Text</button>
+
+    <input type="file" id="file-input" multiple>
+    <button onclick="sendFile()" style="background: #28a745;">Send Files/Videos</button>
+
+    <p id="status">🔴 Not Connected</p>
+    <div class="log-box" id="logs">Logs: Ready to connect...</div>
+</div>
+
+<script>
+    const peer = new Peer(); 
+    let conn;
+
+    // 1. ID milne par display karein
+    peer.on('open', id => {
+        document.getElementById('my-id').innerText = id;
+        addLog("Server se connect ho gaye. ID ready hai.");
+    });
+
+    // 2. Receiver Side: Jab koi doosra device connect kare
+    peer.on('connection', connection => {
+        conn = connection;
+        handleIncomingData();
+    });
+
+    // 3. Sender Side: Dusre device se connect karna
+    function connectToPeer() {
+        const tid = document.getElementById('target-id').value;
+        if (!tid) return alert("Pehle ID toh likho!");
+        
+        conn = peer.connect(tid, { reliable: true });
+        handleIncomingData();
+    }
+
+    function handleIncomingData() {
+        document.getElementById('status').innerText = "🟢 Connected";
+        addLog("Device connect ho gaya!");
+
+        conn.on('data', data => {
+            if (data.type === 'text') {
+                alert("New Text: " + data.content);
+                addLog("Text mila: " + data.content);
+            } else if (data.type === 'file') {
+                const blob = new Blob([data.content]);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.name;
+                a.click();
+                addLog("File mil gayi: " + data.name);
+            }
+        });
+    }
+
+    // 4. Bhejne ke functions
+    function sendText() {
+        if (!conn) connectToPeer();
+        const msg = document.getElementById('text-msg').value;
+        setTimeout(() => {
+            conn.send({ type: 'text', content: msg });
+            addLog("Text bhej diya!");
+        }, 1000);
+    }
+
+    function sendFile() {
+        if (!conn) connectToPeer();
+        const file = document.getElementById('file-input').files[0];
+        if (!file) return alert("File toh select karo!");
+
+        addLog("File bheji ja rahi hai: " + file.name);
+        setTimeout(() => {
+            conn.send({
+                type: 'file',
+                content: file,
+                name: file.name
+            });
+            addLog("File bhej di gayi!");
+        }, 1000);
+    }
+
+    function addLog(msg) {
+        const logBox = document.getElementById('logs');
+        logBox.innerHTML += `<div>> ${msg}</div>`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+</script>
+
+</body>
+</html>
+
